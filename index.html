@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Betting Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; padding: 1.5rem; }
+  .container { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 1.5rem; color: #e6edf3; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+  .tab-btn { background: transparent; border: 1px solid #30363d; border-radius: 8px; padding: 6px 16px; font-size: 13px; cursor: pointer; color: #8b949e; }
+  .tab-btn.active { border-color: #58a6ff; color: #e6edf3; font-weight: 500; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  .field-label { font-size: 12px; color: #8b949e; margin-bottom: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  input { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 7px 10px; font-size: 13px; color: #e6edf3; width: 100%; }
+  input:focus { outline: none; border-color: #58a6ff; }
+  button.primary { background: #238636; border: none; border-radius: 8px; padding: 8px 20px; font-size: 13px; color: #fff; cursor: pointer; }
+  button.primary:hover { background: #2ea043; }
+  .table-header { display: grid; grid-template-columns: 2fr 1.2fr 0.7fr 0.7fr 0.7fr 0.9fr; gap: 8px; padding: 0 0 6px; border-bottom: 1px solid #30363d; }
+  .table-header span { font-size: 11px; color: #484f58; }
+  .pick-row { display: grid; grid-template-columns: 2fr 1.2fr 0.7fr 0.7fr 0.7fr 0.9fr; gap: 8px; padding: 10px 0; border-bottom: 1px solid #21262d; align-items: center; font-size: 13px; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; }
+  .badge-green { background: #1a4429; color: #3fb950; }
+  .badge-red { background: #3d1a1a; color: #f85149; }
+  .badge-gray { background: #21262d; color: #8b949e; }
+  .result-btn { font-size: 11px; padding: 2px 7px; border-radius: 6px; border: 1px solid #30363d; cursor: pointer; background: transparent; color: #8b949e; }
+  .result-btn:hover { background: #21262d; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .metric-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; }
+  .metric-lbl { font-size: 12px; color: #8b949e; margin-bottom: 4px; }
+  .metric-val { font-size: 22px; font-weight: 500; }
+  .tip-box { background: #161b22; border: 1px solid #30363d; border-left: 3px solid #58a6ff; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #8b949e; line-height: 1.6; }
+  .bank-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+  .bank-val { font-size: 15px; font-weight: 500; cursor: pointer; border-bottom: 1px dashed #30363d; padding-bottom: 1px; color: #e6edf3; }
+  .bank-val:hover { color: #58a6ff; }
+  .bank-edit { display: none; align-items: center; gap: 6px; }
+  .bank-edit input { width: 90px; }
+  .bank-edit button { padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #30363d; background: transparent; color: #e6edf3; cursor: pointer; }
+  .empty { font-size: 13px; color: #484f58; padding: 1.5rem 0; text-align: center; }
+  .pnl-pos { color: #3fb950; }
+  .pnl-neg { color: #f85149; }
+  .pnl-neu { color: #8b949e; }
+  .stake-row { display: flex; gap: 8px; align-items: center; }
+  .stake-row input { width: 70px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Betting Tracker</h1>
+  <div class="bank-row">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('registro',event)">Registro</button>
+      <button class="tab-btn" onclick="showTab('stats',event)">Estadísticas</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:12px;color:#8b949e;">Bank real:</span>
+      <span class="bank-val" id="bank-label" onclick="toggleBankEdit()">100.00€</span>
+      <div class="bank-edit" id="bank-edit-wrap">
+        <input type="number" id="bank-manual" step="0.01" min="0" />
+        <button onclick="applyBank()">OK</button>
+        <button onclick="cancelBankEdit()">✕</button>
+      </div>
+    </div>
+  </div>
+  <div id="tab-registro" class="tab-content active">
+    <div class="card">
+      <p style="font-size:13px;font-weight:500;margin-bottom:1rem;">nueva apuesta</p>
+      <div class="grid2">
+        <div><p class="field-label">Pick (equipos)</p><input type="text" id="inp-pick" placeholder="Ej: Braga vs Freiburg" /></div>
+        <div><p class="field-label">Mercado</p><input type="text" id="inp-mercado" placeholder="Ej: Under 2.5" /></div>
+        <div><p class="field-label">Cuota</p><input type="number" id="inp-cuota" placeholder="1.75" step="0.01" min="1" /></div>
+        <div>
+          <p class="field-label">Stake % (sobre <span id="bank-display">100.00</span>€)</p>
+          <div class="stake-row">
+            <input type="number" id="inp-stake-pct" placeholder="3" min="0.5" max="10" step="0.5" oninput="calcStake()" />
+            <span style="font-size:13px;color:#8b949e;">% =</span>
+            <span id="stake-euros" style="font-size:14px;font-weight:500;">0.00€</span>
+          </div>
+        </div>
+      </div>
+      <button class="primary" onclick="addBet()">Añadir apuesta</button>
+    </div>
+    <div class="table-header">
+      <span>PICK</span><span>MERCADO</span><span>CUOTA</span><span>STAKE</span><span>P&L</span><span>RESULTADO</span>
+    </div>
+    <div id="bets-rows"><p class="empty">sin apuestas todavía</p></div>
+  </div>
+  <div id="tab-stats" class="tab-content">
+    <div class="metrics">
+      <div class="metric-card"><p class="metric-lbl">Bankroll</p><p class="metric-val" id="stat-bank">100.00€</p></div>
+      <div class="metric-card"><p class="metric-lbl">Apuestas</p><p class="metric-val" id="stat-total">0</p></div>
+      <div class="metric-card"><p class="metric-lbl">Aciertos</p><p class="metric-val" id="stat-wins">0%</p></div>
+      <div class="metric-card"><p class="metric-lbl">P&L total</p><p class="metric-val" id="stat-pnl">0.00€</p></div>
+    </div>
+    <div style="position:relative;width:100%;height:220px;margin-bottom:1.5rem;">
+      <canvas id="bankChart" role="img" aria-label="Evolución del bankroll">Sin datos.</canvas>
+    </div>
+    <div class="tip-box" id="recomendacion">
+      <strong style="color:#e6edf3;">Recomendación</strong><br>Registra al menos 5 apuestas para recibir feedback sobre tu rendimiento.
+    </div>
+  </div>
+</div>
+<script>
+let bank = parseFloat(localStorage.getItem('bt_bank') || '100');
+let bets = JSON.parse(localStorage.getItem('bt_bets') || '[]');
+let chart = null;
+function save() { localStorage.setItem('bt_bank', bank.toFixed(2)); localStorage.setItem('bt_bets', JSON.stringify(bets)); }
+function updateBankDisplays() { document.getElementById('bank-label').textContent = bank.toFixed(2) + '€'; document.getElementById('bank-display').textContent = bank.toFixed(2); calcStake(); }
+function toggleBankEdit() { document.getElementById('bank-manual').value = bank.toFixed(2); document.getElementById('bank-edit-wrap').style.display = 'flex'; document.getElementById('bank-label').style.display = 'none'; document.getElementById('bank-manual').focus(); }
+function applyBank() { const val = parseFloat(document.getElementById('bank-manual').value); if (!isNaN(val) && val >= 0) { bank = parseFloat(val.toFixed(2)); updateBankDisplays(); updateStats(); save(); } cancelBankEdit(); }
+function cancelBankEdit() { document.getElementById('bank-edit-wrap').style.display = 'none'; document.getElementById('bank-label').style.display = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('bank-edit-wrap').style.display === 'flex') applyBank(); if (e.key === 'Escape') cancelBankEdit(); });
+function calcStake() { const pct = parseFloat(document.getElementById('inp-stake-pct').value) || 0; document.getElementById('stake-euros').textContent = (bank * pct / 100).toFixed(2) + '€'; }
+function addBet() { const pick = document.getElementById('inp-pick').value.trim(); const mercado = document.getElementById('inp-mercado').value.trim(); const cuota = parseFloat(document.getElementById('inp-cuota').value); const pct = parseFloat(document.getElementById('inp-stake-pct').value); if (!pick || !mercado || !cuota || !pct) { alert('Rellena todos los campos'); return; } const stakeEur = parseFloat((bank * pct / 100).toFixed(2)); bets.push({ pick, mercado, cuota, pct, stakeEur, resultado: 'pendiente', pnl: 0 }); document.getElementById('inp-pick').value = ''; document.getElementById('inp-mercado').value = ''; document.getElementById('inp-cuota').value = ''; document.getElementById('inp-stake-pct').value = ''; document.getElementById('stake-euros').textContent = '0.00€'; save(); renderBets(); updateStats(); }
+function setResult(i, res) { const b = bets[i]; if (b.resultado !== 'pendiente') bank = parseFloat((bank - b.pnl).toFixed(2)); if (res === 'win') { b.pnl = parseFloat((b.stakeEur * (b.cuota - 1)).toFixed(2)); b.resultado = 'win'; } else if (res === 'loss') { b.pnl = -b.stakeEur; b.resultado = 'loss'; } else { b.pnl = 0; b.resultado = 'void'; } bank = parseFloat((bank + b.pnl).toFixed(2)); save(); updateBankDisplays(); renderBets(); updateStats(); }
+function renderBets() { const container = document.getElementById('bets-rows'); if (!bets.length) { container.innerHTML = '<p class="empty">sin apuestas todavía</p>'; return; } container.innerHTML = [...bets].reverse().map((b, ri) => { const i = bets.length - 1 - ri; const pnlClass = b.pnl > 0 ? 'pnl-pos' : b.pnl < 0 ? 'pnl-neg' : 'pnl-neu'; const pnlStr = b.pnl >= 0 ? '+' + b.pnl.toFixed(2) + '€' : b.pnl.toFixed(2) + '€'; const badge = b.resultado === 'win' ? '<span class="badge badge-green">ganada</span>' : b.resultado === 'loss' ? '<span class="badge badge-red">perdida</span>' : b.resultado === 'void' ? '<span class="badge badge-gray">void</span>' : ''; const btns = b.resultado === 'pendiente' ? `<div style="display:flex;gap:4px;"><button class="result-btn" onclick="setResult(${i},'win')">✓</button><button class="result-btn" onclick="setResult(${i},'loss')">✗</button><button class="result-btn" onclick="setResult(${i},'void')">—</button></div>` : badge; return `<div class="pick-row"><span style="font-weight:500;">${b.pick}</span><span style="color:#8b949e;">${b.mercado}</span><span>${b.cuota.toFixed(2)}</span><span>${b.stakeEur.toFixed(2)}€</span><span class="${pnlClass}">${b.resultado !== 'pendiente' ? pnlStr : '—'}</span>${btns}</div>`; }).join(''); }
+function updateStats() { const settled = bets.filter(b => b.resultado !== 'pendiente'); const wins = settled.filter(b => b.resultado === 'win').length; const pnl = settled.reduce((a, b) => a + b.pnl, 0); const pct = settled.length > 0 ? Math.round(wins / settled.length * 100) : 0; document.getElementById('stat-bank').textContent = bank.toFixed(2) + '€'; document.getElementById('stat-total').textContent = bets.length; document.getElementById('stat-wins').textContent = pct + '%'; const pnlEl = document.getElementById('stat-pnl'); pnlEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '€'; pnlEl.className = 'metric-val ' + (pnl > 0 ? 'pnl-pos' : pnl < 0 ? 'pnl-neg' : ''); updateRecomendacion(settled, pnl); }
+function updateRecomendacion(settled, pnl) { const box = document.getElementById('recomendacion'); let msg = ''; if (settled.length < 5) { msg = 'Registra al menos 5 apuestas resueltas para recibir feedback real.'; } else { const totalStaked = settled.reduce((a, b) => a + b.stakeEur, 0); const roi = totalStaked > 0 ? (pnl / totalStaked * 100) : 0; const streak = calcStreak(); if (streak >= 2) msg += `⚠️ Llevas ${streak} apuestas perdidas seguidas — no apostar hoy. `; if (roi > 5) msg += `ROI del ${roi.toFixed(1)}% — buen ritmo, mantén el stake disciplinado. `; else if (roi < -10) msg += `ROI negativo (${roi.toFixed(1)}%) — revisa si estás apostando con edge real. `; else msg += `ROI del ${roi.toFixed(1)}% — sigue acumulando picks de calidad sin forzar. `; } box.innerHTML = `<strong style="color:#e6edf3;">Recomendación</strong><br>${msg}`; }
+function calcStreak() { const settled = bets.filter(b => b.resultado === 'loss' || b.resultado === 'win'); let s = 0; for (let i = settled.length - 1; i >= 0; i--) { if (settled[i].resultado === 'loss') s++; else break; } return s; }
+function showTab(t, e) { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.getElementById('tab-' + t).classList.add('active'); if (e && e.target) e.target.classList.add('active'); if (t === 'stats') renderChart(); }
+function renderChart() { const settled = bets.filter(b => b.resultado !== 'pendiente'); const labels = ['Inicio', ...settled.map((_, i) => '#' + (i + 1))]; let running = 100; const data = [100, ...settled.map(b => { running = parseFloat((running + b.pnl).toFixed(2)); return running; })]; const ctx = document.getElementById('bankChart').getContext('2d'); if (chart) chart.destroy(); chart = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ label: 'Bankroll', data, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.08)', borderWidth: 2, pointRadius: 4, fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } }, y: { ticks: { color: '#8b949e', callback: v => v + '€' }, grid: { color: '#21262d' } } } } }); }
+updateBankDisplays(); renderBets(); updateStats();
+</script>
+</body>
+</html>
